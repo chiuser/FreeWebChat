@@ -1,0 +1,203 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=gb2312">
+    <title>Web sockets test</title>
+    <style type="text/css">
+        .container
+        {
+            font-family: "Courier New";
+            width: 680px;
+            height: 300px;
+            overflow: auto;
+            border: 1px solid black;
+        }
+
+        .LockOff {
+            display: none;
+            visibility: hidden;
+        }
+
+        .LockOn {
+            display: block;
+            visibility: visible;
+            position: absolute;
+            z-index: 999;
+            top: 0px;
+            left: 0px;
+            width: 1024%;
+            height: 768%;
+            background-color: #ccc;
+            text-align: center;
+            padding-top: 20%;
+            filter: alpha(opacity=75);
+            opacity: 0.75;
+        }
+    </style>
+
+    <script src="./js/jquery-3.1.1.js" type="text/javascript"></script>
+    <script type="text/javascript">
+        var ws;
+        var SocketCreated = false;
+        var isUserloggedout = false;
+        var groom;
+        var gname;
+
+        function lockOn(str)
+        {
+            var lock = document.getElementById('skm_LockPane');
+            if (lock)
+                lock.className = 'LockOn';
+            lock.innerHTML = str;
+        }
+
+        function lockOff()
+        {
+            var lock = document.getElementById('skm_LockPane');
+            lock.className = 'LockOff';
+        }
+
+        function ToggleConnectionClicked() {
+            if (SocketCreated && (ws.readyState == 0 || ws.readyState == 1)) {
+                lockOn("离开聊天室...");
+                SocketCreated = false;
+                isUserloggedout = true;
+                var msg = JSON.stringify({'command':'leave', 'roomId':groom , 'name': gname,
+                    'info':'离开房间'});
+                ws.send(msg);
+                ws.close();
+            } else if(document.getElementById("roomId").value == "请输入房间号!") {
+                Log("请输入房间号！");
+            } else {
+                lockOn("进入聊天室...");
+                Log("准备连接到聊天服务器 ...");
+                groom = document.getElementById("roomId").value;
+                gname = document.getElementById("txtName").value;
+                try {
+                    if ("WebSocket" in window) {
+                        ws = new WebSocket(
+                            'ws://localhost:8080/webSocket/INFO={"command":"enter","name":"'+ gname + '","roomId":"' + groom + '"}');
+                    }
+                    else if("MozWebSocket" in window) {
+                        ws = new MozWebSocket(
+                            'ws://localhost:8080/webSocket/INFO={"command":"enter","name":"'+ gname + '","roomId":"' + groom + '"}');
+                    }
+                    SocketCreated = true;
+                    isUserloggedout = false;
+                } catch (ex) {
+                    Log(ex, "ERROR");
+                    return;
+                }
+                document.getElementById("ToggleConnection").innerHTML = "断开";
+                ws.onopen = WSonOpen;
+                ws.onmessage = WSonMessage;
+                ws.onclose = WSonClose;
+                ws.onerror = WSonError;
+            }
+        };
+
+
+        function WSonOpen() {
+            lockOff();
+            Log("连接已经建立。", "OK");
+            $("#SendDataContainer").show();
+            var msg = JSON.stringify({'command':'enter', 'roomId':groom , 'name': "all",
+                'info': gname + "加入聊天室"})
+            ws.send(msg);
+        };
+
+        function WSonMessage(event) {
+            Log(event.data, "INFO");
+        };
+
+        function WSonClose() {
+            lockOff();
+            if (isUserloggedout)
+                Log("您已离开了房间！", "INFO");
+            document.getElementById("ToggleConnection").innerHTML = "连接";
+            $("#SendDataContainer").hide();
+        };
+
+        function WSonError() {
+            lockOff();
+            Log("远程连接中断。", "ERROR");
+        };
+
+        function SendDataClicked() {
+            if (document.getElementById("DataToSend").value.trim() != "") {
+                var msg = JSON.stringify({'command':'message', 'roomId':groom , 'name': document.getElementById("DataToSendWho").value,
+                    'info':document.getElementById("DataToSend").value})
+                ws.send(msg);
+                document.getElementById("DataToSend").value = "";
+            }
+        };
+
+
+        function Log(Text, MessageType) {
+            if (MessageType == "OK") Text = "<span style='color: green;'>" + Text + "</span>";
+            if (MessageType == "ERROR") Text = "<span style='color: red;'>" + Text + "</span>";
+            if (MessageType == "INFO") Text = "<span style='color: tomato;'>" + Text + "</span>";
+            document.getElementById("LogContainer").innerHTML = document.getElementById("LogContainer").innerHTML + Text + "<br />";
+            var LogContainer = document.getElementById("LogContainer");
+            LogContainer.scrollTop = LogContainer.scrollHeight;
+        };
+
+
+        $(document).ready(function () {
+            $("#SendDataContainer").hide();
+            var WebSocketsExist = true;
+            try {
+                var dummy = new WebSocket("ws://localhost:8989/test");
+            } catch (ex) {
+                try
+                {
+                    webSocket = new MozWebSocket("ws://localhost:8989/test");
+                }
+                catch(ex)
+                {
+                    WebSocketsExist = false;
+                }
+            }
+
+            if (WebSocketsExist) {
+                Log("您的浏览器支持WebSocket. 您可以尝试连接到聊天服务器!", "OK");
+                document.getElementById("roomId").value = "请输入房间号!";
+            } else {
+                Log("您的浏览器不支持WebSocket。请选择其他的浏览器再尝试连接服务器。", "ERROR");
+                document.getElementById("ToggleConnection").disabled = true;
+            }
+
+            $("#DataToSend").keypress(function(evt)
+            {
+                if (evt.keyCode == 13)
+                {
+                    $("#SendData").click();
+                    evt.preventDefault();
+                }
+            })
+        });
+
+    </script>
+</head>
+<body>
+<div id="skm_LockPane" class="LockOff"></div>
+<form id="form1" runat="server">
+    <h1>小小网页聊天室</h1>
+    <br />
+    <div>
+        按下连接按钮，会通过WebSocket发起一个到聊天浏览器的连接。
+    </div>
+    房间号: <input type="text" id="roomId" /> 用户名： <input type="text" id="txtName" value="小铭"/>
+    <button id='ToggleConnection' type="button" onclick='ToggleConnectionClicked();'>连接</button>
+    <br />
+    <br />
+    <div id='LogContainer' class='container'></div>
+    <br />
+    <div id='SendDataContainer'>
+        消息内容：<input type="text" id="DataToSend" size="40" />
+        发送给（all为发送给房间内所有人）：<input type="text" id="DataToSendWho" size="20" />
+        <button id='SendData' type="button" onclick='SendDataClicked();'>发送</button>
+    </div>
+    <br />
+</form>
+</body>
+</html>
