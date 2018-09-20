@@ -87,7 +87,7 @@
                     Log(ex, "ERROR");
                     return;
                 }
-                document.getElementById("ToggleConnection").innerHTML = "断开";
+                document.getElementById("ToggleConnection").innerHTML = "退出房间";
                 ws.onopen = WSonOpen;
                 ws.onmessage = WSonMessage;
                 ws.onclose = WSonClose;
@@ -184,10 +184,10 @@
     <h1>小小网页聊天室</h1>
     <br />
     <div>
-        按下连接按钮，会通过WebSocket发起一个到聊天浏览器的连接。
+        按下进入按钮，会通过WebSocket发起一个到聊天浏览器的连接。
     </div>
     房间号: <input type="text" id="roomId" /> 用户名： <input type="text" id="txtName" value="小铭"/>
-    <button id='ToggleConnection' type="button" onclick='ToggleConnectionClicked();'>连接</button>
+    <button id='ToggleConnection' type="button" onclick='ToggleConnectionClicked();'>进入房间</button>
     <br />
     <br />
     <div id='LogContainer' class='container'></div>
